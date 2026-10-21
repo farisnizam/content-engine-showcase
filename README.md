@@ -1,7 +1,7 @@
 <h1 align="center">Content Editor Engine</h1>
 <p align="center">
-  <b>An agent-operated pipeline that turns a raw talking-head recording into a finished, captioned vertical video.</b><br>
-  Transcription · automatic flub &amp; dead-air cutting · word-level captions · Remotion rendering · loudness mastering · human review
+  <b>An agent-operated pipeline that turns a raw talking-head recording into a published, measured short-form video.</b><br>
+  Transcription · AI cutting · captions &amp; B-roll · Remotion rendering · human review · auto-posting · performance tracking
 </p>
 
 <p align="center"><b>🎬 2-minute demo video: coming soon</b></p>
@@ -24,18 +24,20 @@
 
 | | Before (mobile editor) | After (this engine) |
 |---|---|---|
-| Time per 1-minute video | ~80–110 min of manual editing | ~12 min unattended processing + a few minutes of review |
-| A week of 7 videos | ~9–13 hours of manual work | ~1.5 hours unattended (one batch) + ~30 min review |
+| Time per 1-minute video | 70–80 min of manual editing (2 h+ for a new style) | ~12 min unattended processing + a few minutes of review |
+| A week of 7 videos | ~8–9.5 hours of manual work | ~1.5 hours unattended (one batch) + ~30 min review |
+| Rough cut accuracy | Done by ear | The AI's cuts agree with 94–98% of my own |
+| Posting & stats | Upload to each app, check numbers by hand | Scheduled to TikTok, Instagram and YouTube; views and watch time collected automatically |
 | Rough cut | Listening for every flub without a waveform | Automatic. Every cut lands in measured silence |
 | Captions & effects | Copy-pasted by hand | Template + config, word-accurate timing |
 | Audio | As recorded | Mastered to −14 LUFS, true peak ≤ −1 dBTP |
 | Consistency | Varies with effort | Same style system for every video |
 
-Used every week for my own short-form videos · ~20K lines of TypeScript & Python · source is private ([why](#why-is-the-source-private)).
+Used every week for my own short-form videos · ~30K lines of TypeScript & Python · source is private ([why](#why-is-the-source-private)).
 
 ## The problem
 
-I publish short talking-head videos. Editing one minute of video by hand meant finding every stumble, re-take and pause by ear, then adding captions, titles and sound effects one by one on a phone, because the desktop editor I'd use doesn't run on Linux. That took 1–2 hours per video, and quality depended on how much energy I had left.
+I publish short talking-head videos. Editing one minute of video by hand meant finding every stumble, re-take and pause by ear, then adding captions, titles and sound effects one by one on a phone, because the desktop editor I'd use doesn't run on Linux. That took 70–80 minutes per video (over two hours for a new style), and quality depended on how much energy I had left. Then each video still had to be uploaded to every platform, and its numbers checked by hand.
 
 ## How it works
 
@@ -49,16 +51,25 @@ flowchart LR
     E --> F[Scene map<br/>+ review stills]
     F --> G[Render<br/>Remotion · React]
     G --> H[Audio master<br/>−14 LUFS]
-    H --> I[Final reel<br/>1080×1920]
+    H --> R{My final review<br/>comments → revision}
+    R -- comments --> E
+    R -- approve --> P[Schedule post<br/>Buffer → TikTok · IG · YouTube]
+    P --> M[Pull metrics<br/>24 h · 48 h · 7 d]
+    M --> Q[Performance dashboard]
+    P -. status .-> T[Telegram updates]
+    M -. summary .-> T
 ```
 
 1. **Transcribe.** WhisperX gives word-level timestamps. Each speech chunk is transcribed on its own, so restarts stay visible and hallucinated text in silences can be filtered out.
 2. **Cut.** The pipeline detects restarts (a line re-said by the next take), filler-only takes and noise. It also flags stalls, look-aways and off-camera moments with MediaPipe face tracking. These visual flags are only raised for review and never cut anything on their own.
 3. **Review.** A browser-based cutter shows the waveform, transcript and every proposed cut. I accept, adjust or add cuts.
-4. **Caption & compose.** My script's wording is laid onto the spoken timing. A style template (one folder per style) turns a single config file into the full composition.
+4. **Caption & compose.** My script's wording is laid onto the spoken timing. Stock B-roll comes from the Unsplash and Pixabay APIs, through filters for AI-generated slop and content my audience shouldn't see, and every stock shot gets an on-screen credit. A style template (one folder per style) turns a single config file into the full composition.
 5. **Render & master.** Remotion renders the video. The audio is mastered to broadcast loudness, then automated checks run (flash gate, review stills).
+6. **Review, publish & measure.** I watch the final, leave comments for a revision or approve it. Approved videos are scheduled through Buffer to TikTok, Instagram and YouTube (one a day). Views, likes, shares and average watch time are pulled back at 24 hours, 48 hours and 7 days into a dashboard, and Telegram tells me when a video is ready, posted or failed, with a 48-hour performance summary.
 
-Two ways to run it: **batch mode** (rough-cut a whole batch, review, then render) and **one-shot mode** (straight from take to final render, which I use when the rough cut needs no changes).
+**AI cut mode:** for a whole batch, the agent cuts every take itself from the detector's suggestions plus its own editing pass, then goes straight on to the final. Its cuts agree with 94–98% of the cuts I'd make by hand, so most of my time goes into the final review, not the rough cut.
+
+**The agent runs by itself:** a small runner starts at login, picks up each job from the editor and runs it in its own fresh Claude Code session (model and effort set per job type), so no terminal has to stay open.
 
 ## Key engineering decisions
 
@@ -74,11 +85,20 @@ Two ways to run it: **batch mode** (rough-cut a whole batch, review, then render
 | Whisper "heard" sentences in silent gaps that were never said | Transcribe each chunk alone and filter hallucinations | Treat model output as a proposal, and design for its known failure modes |
 | Cuts clipped the start or end of words | Hard rule: cuts must land in measured silence, plus seam matching to the best-matching frames (jump seams 5 → 1 on a test take) | Encode taste as measurable constraints |
 | Rough cuts felt slow ("not punchy") | Measured my manual cuts and adopted their timings as a new cut style | Human feedback is data |
+| The AI cost per video was ~10× my first estimate (about US$1.50, not RM0.60) | Instrumented every run: half the bill was the agent re-reading earlier videos' history, so each job now runs in a fresh session; further savings are tested one change at a time against fixed quality gates and a golden set | An agent's cost is turns × context size, not the prompt. Measure before optimising |
+| Scheduling hit Buffer's free-plan limit (250 requests a day) | Ask only about posts that are due, cache channels, and back off on HTTP 429 until `Retry-After` | Design for rate limits from day one |
 | Glances at the phone weren't detected, because the eyes barely move when the phone is near the lens | Track the head instead: a change of ≥ 7% in face size flags an off-camera moment | Measure the signal that actually changes, not the one you assumed |
 
 ## Human in the loop
 
-A small browser app (Node.js server + vanilla JS) shows the take's waveform, the transcript and every proposed cut. I can play any seam, drag the playhead to scrub, accept or adjust a cut, or add one the detector missed. The corrections are saved back into the batch file, so the render uses exactly what I approved, and repeated corrections become new default rules.
+A small browser app (Node.js built-in HTTP server + plain JavaScript; the only UI library is the waveform renderer) is where I work with the agent:
+
+- **Cut:** the take's waveform, transcript and every proposed cut. I can play any seam, scrub, accept or adjust a cut, or add one the detector missed.
+- **Review:** the final video, with comments that send it back for a revision.
+- **Post:** the caption for each platform, and scheduling.
+- **Performance:** each video's numbers, plus the AI cost and the minutes I spent on it.
+- **Agent panel:** what the agent is working on, and a live, step-by-step view of what it did.
+
 <!-- When ready: <p align="center"><img src="assets/cutter.gif" alt="Reviewing proposed cuts on the waveform" width="720"></p> -->
 
 ## How AI is used
@@ -89,13 +109,17 @@ A small browser app (Node.js server + vanilla JS) shows the take's waveform, the
 
 ## Tech stack
 
-**Video & UI:** TypeScript, React, Remotion · **Audio & ML:** Python, WhisperX, MediaPipe, FFmpeg · **Tooling:** Node.js, shell, Claude Code
+**Video & UI:** TypeScript, React, Remotion · **Audio & ML:** Python, WhisperX, MediaPipe, FFmpeg · **Integrations:** Buffer API, Cloudflare R2, Telegram Bot API, Unsplash/Pixabay APIs · **Tooling:** Node.js, shell, systemd, Claude Code
 
 ## Roadmap
 
-- [ ] Telegram bot front door: send a take → get review stills → approve → receive the final video
+- [x] Auto-posting to TikTok, Instagram and YouTube
+- [x] Automatic performance tracking (24 h / 48 h / 7 d)
+- [x] Telegram notifications
+- [ ] Cut the AI cost per video further without losing quality (measured experiments, one change at a time)
 - [ ] Detect abandoned sentences (false starts) automatically
-- [ ] Timed benchmarks per stage
+- [ ] Send a take from my phone through Telegram
+- [ ] Facebook as a fourth channel
 
 ## Why is the source private?
 
