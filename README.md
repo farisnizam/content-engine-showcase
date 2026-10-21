@@ -26,7 +26,7 @@
 |---|---|---|
 | Time per 1-minute video | 70–80 min of manual editing (2 h+ for a new style) | ~12 min unattended processing + a few minutes of review |
 | A week of 7 videos | ~8–9.5 hours of manual work | ~1.5 hours unattended (one batch) + ~30 min review |
-| Rough cut accuracy | Done by ear | The AI's cuts agree with 94–98% of my own |
+| Rough cut accuracy | Done by ear | The AI's suggestions alone catch 94–98% of what I'd cut by hand |
 | Posting & stats | Upload to each app, check numbers by hand | Scheduled to TikTok, Instagram and YouTube; views and watch time collected automatically |
 | Rough cut | Listening for every flub without a waveform | Automatic. Every cut lands in measured silence |
 | Captions & effects | Copy-pasted by hand | Template + config, word-accurate timing |
@@ -67,7 +67,7 @@ flowchart LR
 5. **Render & master.** Remotion renders the video. The audio is mastered to broadcast loudness, then automated checks run (flash gate, review stills).
 6. **Review, publish & measure.** I watch the final, leave comments for a revision or approve it. Approved videos are scheduled through Buffer to TikTok, Instagram and YouTube (one a day). Views, likes, shares and average watch time are pulled back at 24 hours, 48 hours and 7 days into a dashboard, and Telegram tells me when a video is ready, posted or failed, with a 48-hour performance summary.
 
-**AI cut mode:** for a whole batch, the agent cuts every take itself from the detector's suggestions plus its own editing pass, then goes straight on to the final. Its cuts agree with 94–98% of the cuts I'd make by hand, so most of my time goes into the final review, not the rough cut.
+**AI cut mode:** for a whole batch, the agent cuts every take itself from the detector's suggestions plus its own editing pass, then goes straight on to the final. On a test batch, the detector's suggestions alone caught 94–98% of what I cut by hand, before the agent's own editing pass, so most of my time goes into the final review, not the rough cut.
 
 **The agent runs by itself:** a small runner starts at login, picks up each job from the editor and runs it in its own fresh Claude Code session (model and effort set per job type), so no terminal has to stay open.
 
